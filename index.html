@@ -643,7 +643,7 @@ async function callAPI(userMessage) {
         },
         body: JSON.stringify({
           model: 'claude-sonnet-4-20250514',
-          max_tokens: 1000,
+          max_completion_tokens: 1000,
           system: SYSTEM_PROMPT,
           messages: state.messages,
         }),
