@@ -623,7 +623,7 @@ async function callAPI(userMessage) {
         },
         body: JSON.stringify({
           model: 'gpt-5.1',
-          max_tokens: 1000,
+          max_completion_tokens: 1000,
           messages: [
             { role: 'system', content: SYSTEM_PROMPT },
             ...state.messages,
