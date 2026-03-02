@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>힐링 산책 — Healing Walk</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.4/howler.min.js"></script>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { width: 100%; height: 100%; overflow: hidden; }
@@ -284,6 +285,28 @@
   @supports (padding: env(safe-area-inset-bottom)) {
     #choices-area { padding-bottom: calc(30px + env(safe-area-inset-bottom)); }
   }
+
+  /* ─── Sound Toggle ─── */
+  #sound-toggle {
+    position: absolute;
+    top: 14px;
+    right: 50%;
+    transform: translateX(50%);
+    z-index: 10;
+    background: rgba(0,0,0,0.4);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 20px;
+    padding: 6px 14px;
+    color: rgba(232,224,208,0.6);
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: none;
+  }
+  #sound-toggle:hover { background: rgba(0,0,0,0.6); color: #e8e0d0; }
+  #sound-toggle.visible { display: block; }
 </style>
 </head>
 <body>
@@ -294,6 +317,7 @@
 
   <div id="turn-indicator"></div>
   <div id="amb-indicator"></div>
+  <button id="sound-toggle" title="사운드 켜기/끄기">🔊</button>
 
   <div id="content">
     <!-- Title Screen -->
@@ -345,6 +369,68 @@
 </div>
 
 <script>
+// ─── Sound System ───
+const SOUNDS = {};
+let currentSound = null;
+let soundMuted = false;
+const soundToggle = document.getElementById('sound-toggle');
+
+function initSounds() {
+  const soundFiles = {
+    forest: './sounds/forest.mp3',
+    rain: './sounds/rain.mp3',
+    night: './sounds/night.mp3',
+    snow: './sounds/snow.mp3',
+    beach: './sounds/beach.mp3',
+  };
+  for (const [id, src] of Object.entries(soundFiles)) {
+    SOUNDS[id] = new Howl({
+      src: [src],
+      loop: true,
+      volume: 0,
+      preload: true,
+    });
+  }
+}
+
+function fadeToSound(ambienceId) {
+  const target = SOUNDS[ambienceId];
+  if (!target) return;
+  // 타이틀/다이어리 화면에서는 사운드 재생 안 함
+  if (!soundToggle.classList.contains('visible')) return;
+
+  // 현재 재생 중인 사운드를 페이드아웃
+  if (currentSound && currentSound !== target) {
+    const old = currentSound;
+    old.fade(old.volume(), 0, 1500);
+    setTimeout(() => old.stop(), 1600);
+  }
+
+  // 새 사운드 페이드인
+  if (!target.playing()) target.play();
+  target.fade(0, soundMuted ? 0 : 0.4, 1500);
+  currentSound = target;
+}
+
+function toggleSound() {
+  soundMuted = !soundMuted;
+  soundToggle.textContent = soundMuted ? '🔇' : '🔊';
+  if (currentSound) {
+    if (soundMuted) {
+      currentSound.fade(currentSound.volume(), 0, 300);
+    } else {
+      currentSound.fade(0, 0.4, 300);
+    }
+  }
+}
+
+function stopAllSounds() {
+  for (const s of Object.values(SOUNDS)) {
+    s.stop();
+  }
+  currentSound = null;
+}
+
 // ─── Config ───
 const AMBIENCES = {
   forest: { name: '숲길 🌿', bg: 'linear-gradient(180deg, #1a3a1a 0%, #2d5a2d 30%, #3a6b3a 60%, #2a4a2a 100%)', bgBottom: '#2a4a2a', particle: 'leaf', accent: '#6aaa7a', textBg: 'rgba(20,40,20,0.85)' },
@@ -546,6 +632,8 @@ function applyAmbience(id) {
 
   ambInd.textContent = amb.name;
   initParticles();
+  // 사운드 전환
+  fadeToSound(id);
 }
 
 // ─── Apply Scene Image ───
@@ -754,6 +842,7 @@ async function startWalk() {
 
   titleScreen.style.display = 'none';
   walkScreen.classList.add('active');
+  soundToggle.classList.add('visible');
   state.turn = 1;
   state.messages = [];
   state.history = [];
@@ -790,6 +879,8 @@ function resetGame() {
   titleScreen.style.display = '';
   sceneImg.classList.remove('visible');
   state.ambience = 'forest';
+  stopAllSounds();
+  soundToggle.classList.remove('visible');
   applyAmbience('forest');
   state.turn = 0;
   state.messages = [];
@@ -803,6 +894,10 @@ function resetGame() {
 
 $('#start-btn').addEventListener('click', startWalk);
 $('#restart-btn').addEventListener('click', resetGame);
+soundToggle.addEventListener('click', toggleSound);
+
+// 사운드 초기화 (Howl 객체 미리 생성)
+initSounds();
 
 // ─── Particle System ───
 let particles = [];
