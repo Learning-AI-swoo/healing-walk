@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>힐링 산책 — Healing Walk</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; }
+  body { font-family: 'Noto Sans KR', sans-serif; background: #0a0a0a; color: #e8e0d0; }
+
+  /* ─── Container ─── */
+  #app {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    transition: background 2s ease;
+  }
+
+  /* ─── Scene Image ─── */
+  #scene-image {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 45%;
+    background-size: cover;
+    background-position: center;
+    z-index: 0;
+    opacity: 0;
+    transition: opacity 1.5s ease, background-image 1.5s ease;
+  }
+  #scene-image.visible { opacity: 1; }
+  #scene-image::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0;
+    width: 100%; height: 60%;
+    background: linear-gradient(to bottom, transparent, var(--bg-bottom, #1a3a1a));
+    pointer-events: none;
+  }
+
+  /* ─── Canvas (particles) ─── */
+  #particle-canvas {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  /* ─── Content Layer ─── */
+  #content {
+    position: relative;
+    z-index: 2;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ─── Indicators ─── */
+  #turn-indicator {
+    position: absolute; top: 16px; left: 16px;
+    color: rgba(232,224,208,0.3); font-size: 12px; z-index: 3;
+  }
+  #amb-indicator {
+    position: absolute; top: 16px; right: 16px;
+    color: rgba(232,224,208,0.4); font-size: 12px; z-index: 3;
+    letter-spacing: 1px;
+  }
+
+  /* ─── Title Screen ─── */
+  #title-screen {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    height: 100%; padding: 20px; text-align: center;
+  }
+  #title-screen h1 {
+    font-size: clamp(28px, 6vw, 48px);
+    font-weight: 300; letter-spacing: 4px;
+    text-shadow: 0 2px 20px rgba(0,0,0,0.3);
+    margin-bottom: 8px;
+  }
+  #title-screen .subtitle {
+    font-size: clamp(14px, 3vw, 20px);
+    color: rgba(232,224,208,0.6);
+    font-weight: 300; letter-spacing: 8px;
+    margin-bottom: 40px;
+  }
+  .api-section {
+    display: flex; flex-direction: column;
+    gap: 12px; margin-bottom: 30px;
+    width: min(320px, 80vw);
+  }
+  .provider-toggle {
+    display: flex; border-radius: 8px; overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.15);
+  }
+  .provider-btn {
+    flex: 1; padding: 8px 12px;
+    background: transparent; color: rgba(232,224,208,0.4);
+    border: none; cursor: pointer; font-size: 13px;
+    font-family: 'Noto Sans KR', sans-serif;
+    transition: all 0.3s;
+  }
+  .provider-btn.active {
+    background: rgba(255,255,255,0.15);
+    color: #e8e0d0;
+  }
+  #api-key-input {
+    padding: 12px 16px; border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: rgba(0,0,0,0.3); color: #e8e0d0;
+    font-size: 14px; font-family: 'Noto Sans KR', sans-serif;
+    outline: none; text-align: center;
+  }
+  .hint { color: rgba(232,224,208,0.35); font-size: 12px; margin-top: 4px; }
+  #start-btn {
+    padding: 14px 48px; border-radius: 24px;
+    border: 1px solid rgba(255,255,255,0.2);
+    background: rgba(255,255,255,0.08); color: #e8e0d0;
+    font-size: 16px; font-family: 'Noto Sans KR', sans-serif;
+    cursor: pointer; letter-spacing: 4px;
+    transition: all 0.3s;
+  }
+  #start-btn:hover { background: rgba(255,255,255,0.15); }
+
+  /* ─── Walk Screen ─── */
+  #walk-screen { display: none; height: 100%; flex-direction: column; }
+  #walk-screen.active { display: flex; }
+  #scroll-area {
+    flex: 1; overflow-y: auto;
+    padding: 20px; padding-bottom: 20px;
+  }
+  #scroll-area::-webkit-scrollbar { width: 4px; }
+  #scroll-area::-webkit-scrollbar-track { background: transparent; }
+  #scroll-area::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+
+  .history-entry { margin-bottom: 20px; opacity: 0.5; }
+  .history-narration { color: rgba(232,224,208,0.6); font-size: 14px; line-height: 1.8; margin-bottom: 6px; }
+  .history-choice { color: var(--accent, #6aaa7a); font-size: 13px; opacity: 0.7; padding-left: 12px; border-left: 2px solid rgba(106,170,122,0.27); }
+
+  #narration {
+    color: #e8e0d0;
+    font-size: clamp(15px, 3.5vw, 18px);
+    line-height: 2;
+    margin-bottom: 24px;
+    text-shadow: 0 1px 8px rgba(0,0,0,0.3);
+    white-space: pre-wrap;
+  }
+  #loading {
+    color: rgba(232,224,208,0.5);
+    font-size: 16px; text-align: center;
+    padding: 40px; letter-spacing: 4px;
+    animation: pulse 2s infinite;
+  }
+  .error-box {
+    color: #ff8888; font-size: 13px; text-align: center;
+    padding: 12px; background: rgba(255,0,0,0.1);
+    border-radius: 8px; margin: 12px 0;
+  }
+
+  /* ─── Choices ─── */
+  #choices-area {
+    display: none; flex-direction: column;
+    gap: 10px; padding: 0 20px 30px;
+    animation: fadeIn 0.5s ease;
+  }
+  #choices-area.active { display: flex; }
+  .choice-btn {
+    padding: 14px 20px; border-radius: 12px;
+    border: 1px solid rgba(106,170,122,0.27);
+    background: rgba(20,40,20,0.85);
+    color: #e8e0d0; font-size: 15px;
+    font-family: 'Noto Sans KR', sans-serif;
+    cursor: pointer; text-align: left;
+    transition: all 0.3s; line-height: 1.6;
+  }
+  .choice-btn:hover { transform: translateX(4px); }
+
+  /* ─── Surprise Overlay ─── */
+  #surprise-overlay {
+    display: none;
+    position: fixed; top: 0; left: 0;
+    width: 100%; height: 100%;
+    flex-direction: column;
+    align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.7);
+    z-index: 100; animation: fadeIn 0.5s ease;
+  }
+  #surprise-overlay.active { display: flex; }
+  #surprise-emoji { font-size: 72px; margin-bottom: 20px; }
+  #surprise-text { color: #e8e0d0; font-size: 18px; text-align: center; max-width: 300px; line-height: 1.8; }
+
+  /* ─── Diary Screen ─── */
+  #diary-screen {
+    display: none; flex-direction: column;
+    align-items: center; justify-content: center;
+    height: 100%; padding: 30px; text-align: center;
+  }
+  #diary-screen.active { display: flex; }
+  .diary-card {
+    background: rgba(0,0,0,0.4);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 16px; padding: 32px 28px;
+    max-width: 400px; width: 100%;
+  }
+  .diary-title {
+    font-size: 14px; color: rgba(232,224,208,0.5);
+    letter-spacing: 6px; margin-bottom: 24px;
+  }
+  .diary-line { color: #e8e0d0; font-size: 16px; line-height: 2.2; margin-bottom: 8px; }
+  #restart-btn {
+    margin-top: 32px; padding: 12px 36px;
+    border-radius: 20px;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: rgba(255,255,255,0.06);
+    color: #e8e0d0; font-size: 14px;
+    font-family: 'Noto Sans KR', sans-serif;
+    cursor: pointer; letter-spacing: 3px;
+  }
+  #restart-btn:hover { background: rgba(255,255,255,0.12); }
+
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes pulse { 0%, 100% { opacity: 0.3; } 50% { opacity: 0.8; } }
+
+  /* mobile safe area */
+  @supports (padding: env(safe-area-inset-bottom)) {
+    #choices-area { padding-bottom: calc(30px + env(safe-area-inset-bottom)); }
+  }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div id="scene-image"></div>
+  <canvas id="particle-canvas"></canvas>
+
+  <div id="turn-indicator"></div>
+  <div id="amb-indicator"></div>
+
+  <div id="content">
+    <!-- Title Screen -->
+    <div id="title-screen">
+      <h1>힐링 산책</h1>
+      <div class="subtitle">HEALING WALK</div>
+      <div class="api-section">
+        <div class="provider-toggle">
+          <button class="provider-btn active" data-provider="openai">OpenAI</button>
+          <button class="provider-btn" data-provider="anthropic">Anthropic</button>
+        </div>
+        <input type="password" id="api-key-input" placeholder="OpenAI API Key">
+        <div class="hint" id="api-hint"></div>
+      </div>
+      <button id="start-btn">산 책 시 작</button>
+    </div>
+
+    <!-- Walk Screen -->
+    <div id="walk-screen">
+      <div id="scroll-area">
+        <div id="history"></div>
+        <div id="loading" style="display:none;">걸 어 가 는 중 . . .</div>
+        <div id="narration"></div>
+        <div id="error" class="error-box" style="display:none;"></div>
+      </div>
+      <div id="choices-area"></div>
+    </div>
+
+    <!-- Diary Screen -->
+    <div id="diary-screen">
+      <div class="diary-card">
+        <div class="diary-title">산 책 일 기</div>
+        <div id="diary-lines"></div>
+      </div>
+      <button id="restart-btn">다시 걷기</button>
+    </div>
+  </div>
+
+  <!-- Surprise Overlay -->
+  <div id="surprise-overlay">
+    <div id="surprise-emoji"></div>
+    <div id="surprise-text"></div>
+  </div>
+</div>
+
+<script>
+// ─── Config ───
+const AMBIENCES = {
+  forest: { name: '숲길 🌿', bg: 'linear-gradient(180deg, #1a3a1a 0%, #2d5a2d 30%, #3a6b3a 60%, #2a4a2a 100%)', bgBottom: '#2a4a2a', particle: 'leaf', accent: '#6aaa7a', textBg: 'rgba(20,40,20,0.85)' },
+  rain:   { name: '빗속 🌧️', bg: 'linear-gradient(180deg, #2a3a4a 0%, #3a4a5a 30%, #4a5a6a 60%, #2a3a4a 100%)', bgBottom: '#2a3a4a', particle: 'rain', accent: '#6a9aba', textBg: 'rgba(20,30,45,0.85)' },
+  night:  { name: '밤길 ✨', bg: 'linear-gradient(180deg, #0a0a2a 0%, #1a1a3a 30%, #2a2050 60%, #0a0a1a 100%)', bgBottom: '#0a0a1a', particle: 'firefly', accent: '#b0a0d0', textBg: 'rgba(10,10,30,0.85)' },
+  snow:   { name: '설경 ❄️', bg: 'linear-gradient(180deg, #4a5a6a 0%, #6a7a8a 30%, #8a9aaa 60%, #5a6a7a 100%)', bgBottom: '#5a6a7a', particle: 'snow', accent: '#a0bcd0', textBg: 'rgba(40,50,60,0.85)' },
+  beach:  { name: '해변 🌅', bg: 'linear-gradient(180deg, #d4886a 0%, #e8a070 30%, #c08060 60%, #8a6050 100%)', bgBottom: '#8a6050', particle: 'none', accent: '#d4a06a', textBg: 'rgba(60,40,30,0.85)' },
+};
+
+const IMAGE_MAP = {
+  forest_path: './images/forest_path.jpeg', forest_stream: './images/forest_stream.jpeg',
+  forest_bench: './images/forest_bench.jpeg', forest_cabin: './images/forest_cabin.jpeg',
+  forest_bridge: './images/forest_bridge.jpeg',
+  rain_path: './images/rain_path.jpeg', rain_shelter: './images/rain_shelter.jpeg',
+  rain_puddle: './images/rain_puddle.jpeg', rain_umbrella: './images/rain_umbrella.jpeg',
+  night_moon: './images/night_moon.jpeg', night_fireflies: './images/night_fireflies.jpeg',
+  night_stars: './images/night_stars.jpeg', night_campfire: './images/night_campfire.jpeg',
+  snow_path: './images/snow_path.jpeg', snow_lake: './images/snow_lake.jpeg',
+  snow_village: './images/snow_village.jpeg', snow_field: './images/snow_field.jpeg',
+  beach_sunset: './images/beach_sunset.jpeg', beach_lighthouse: './images/beach_lighthouse.jpeg',
+  beach_tide: './images/beach_tide.jpeg', beach_dock: './images/beach_dock.jpeg',
+};
+
+// Default scene per ambience (fallback)
+const DEFAULT_SCENE = {
+  forest: 'forest_path', rain: 'rain_path', night: 'night_moon',
+  snow: 'snow_path', beach: 'beach_sunset',
+};
+
+const SYSTEM_PROMPT = `당신은 '힐링 산책' 텍스트 어드벤처의 내레이터입니다.
+
+## 역할
+- ASMR처럼 조용하고 따뜻한 톤
+- 감각 묘사에 집중: 소리, 냄새, 촉감, 온도, 빛
+- 한국어로 진행
+
+## 응답 형식
+1. 2~3문단의 나레이션 (감각적 묘사)
+2. 반드시 선택지 3개 제공:
+**A)** 선택지 텍스트
+**B)** 선택지 텍스트
+**C)** 선택지 텍스트
+
+## 앰비언스 태그
+반드시 응답 맨 앞에 [AMBIENCE:id] 태그를 포함하세요.
+가능한 id: forest, rain, night, snow, beach
+
+**중요**: 2~3턴마다 자연스럽게 다른 앰비언스로 전환하세요. 선택지 중 최소 하나는 다른 장소/분위기로 이동하는 옵션이어야 합니다.
+
+## 씬 태그
+나레이션에 어울리는 장면을 [SCENE:id] 태그로 지정하세요 (앰비언스 태그 바로 뒤에).
+가능한 scene id:
+- forest: forest_path, forest_stream, forest_bench, forest_cabin, forest_bridge
+- rain: rain_path, rain_shelter, rain_puddle, rain_umbrella
+- night: night_moon, night_fireflies, night_stars, night_campfire
+- snow: snow_path, snow_lake, snow_village, snow_field
+- beach: beach_sunset, beach_lighthouse, beach_tide, beach_dock
+
+## 서프라이즈 이벤트
+3~4턴마다 [SURPRISE:이모지:짧은설명] 태그를 추가하세요.
+예: [SURPRISE:🦌:숲에서 사슴과 눈이 마주쳤다], [SURPRISE:🌠:별똥별이 하늘을 가로질렀다]
+
+## 엔딩
+턴 수가 7 이상이면, 선택지 중 하나에 "귀가" 또는 "산책 마무리" 옵션을 포함하세요.
+사용자가 귀가를 선택하면, 마지막 나레이션 후 아래 형식으로 3줄 일기를 작성하세요:
+
+---DIARY---
+첫째 줄: 오늘 산책에서 본 것
+둘째 줄: 산책에서 느낀 감정
+셋째 줄: 내일의 나에게 한마디
+---END---`;
+
+// ─── State ───
+let state = {
+  screen: 'title',
+  provider: 'openai',
+  apiKey: '',
+  ambience: 'forest',
+  scene: null,
+  turn: 0,
+  messages: [],
+  history: [],
+};
+
+// ─── DOM Refs ───
+const $ = (sel) => document.querySelector(sel);
+const app = $('#app');
+const sceneImg = $('#scene-image');
+const titleScreen = $('#title-screen');
+const walkScreen = $('#walk-screen');
+const diaryScreen = $('#diary-screen');
+const scrollArea = $('#scroll-area');
+const historyEl = $('#history');
+const narrationEl = $('#narration');
+const loadingEl = $('#loading');
+const errorEl = $('#error');
+const choicesArea = $('#choices-area');
+const surpriseOverlay = $('#surprise-overlay');
+const turnInd = $('#turn-indicator');
+const ambInd = $('#amb-indicator');
+
+// ─── Provider Toggle ───
+document.querySelectorAll('.provider-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.provider-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.provider = btn.dataset.provider;
+    const input = $('#api-key-input');
+    input.placeholder = state.provider === 'openai' ? 'OpenAI API Key' : 'Anthropic API Key';
+    $('#api-hint').textContent = '';
+  });
+});
+
+$('#api-key-input').addEventListener('input', (e) => { state.apiKey = e.target.value; });
+
+// ─── Apply Ambience ───
+function applyAmbience(id) {
+  const amb = AMBIENCES[id];
+  if (!amb) return;
+  state.ambience = id;
+  app.style.background = amb.bg;
+  document.documentElement.style.setProperty('--bg-bottom', amb.bgBottom);
+  document.documentElement.style.setProperty('--accent', amb.accent);
+
+  // Update choice button styles
+  document.querySelectorAll('.choice-btn').forEach(btn => {
+    btn.style.borderColor = amb.accent + '44';
+    btn.style.background = amb.textBg;
+  });
+
+  ambInd.textContent = amb.name;
+  initParticles();
+}
+
+// ─── Apply Scene Image ───
+function applyScene(sceneId) {
+  const id = sceneId || DEFAULT_SCENE[state.ambience];
+  const url = IMAGE_MAP[id];
+  if (url) {
+    sceneImg.style.backgroundImage = `url(${url})`;
+    sceneImg.classList.add('visible');
+  } else {
+    sceneImg.classList.remove('visible');
+  }
+  state.scene = id;
+}
+
+// ─── Parse Response ───
+function parseResponse(text) {
+  let ambience = null, scene = null, surprise = null, diary = null, choices = [], narration = text;
+
+  const ambMatch = narration.match(/\[AMBIENCE:(\w+)\]/);
+  if (ambMatch) { ambience = ambMatch[1]; narration = narration.replace(ambMatch[0], ''); }
+
+  const sceneMatch = narration.match(/\[SCENE:(\w+)\]/);
+  if (sceneMatch) { scene = sceneMatch[1]; narration = narration.replace(sceneMatch[0], ''); }
+
+  const surpMatch = narration.match(/\[SURPRISE:(.+?):(.+?)\]/);
+  if (surpMatch) { surprise = { emoji: surpMatch[1], text: surpMatch[2] }; narration = narration.replace(surpMatch[0], ''); }
+
+  const diaryMatch = narration.match(/---DIARY---([\s\S]*?)---END---/);
+  if (diaryMatch) { diary = diaryMatch[1].trim().split('\n').map(l => l.trim()).filter(Boolean); narration = narration.replace(diaryMatch[0], ''); }
+
+  const choiceRegex = /\*\*([ABC])\)\*\*\s*(.+)/g;
+  let m;
+  while ((m = choiceRegex.exec(narration)) !== null) { choices.push({ label: m[1], text: m[2].trim() }); }
+  narration = narration.replace(/\*\*[ABC]\)\*\*.+/g, '').trim();
+
+  return { ambience, scene, surprise, diary, choices, narration };
+}
+
+// ─── Typing Animation ───
+function typeText(el, text, speed = 12) {
+  return new Promise(resolve => {
+    el.textContent = '';
+    let i = 0;
+    const interval = setInterval(() => {
+      i++;
+      el.textContent = text.slice(0, i);
+      scrollArea.scrollTop = scrollArea.scrollHeight;
+      if (i >= text.length) { clearInterval(interval); resolve(); }
+    }, speed);
+  });
+}
+
+// ─── Show Surprise ───
+function showSurprise(surprise) {
+  $('#surprise-emoji').textContent = surprise.emoji;
+  $('#surprise-text').textContent = surprise.text;
+  surpriseOverlay.classList.add('active');
+  setTimeout(() => surpriseOverlay.classList.remove('active'), 3500);
+}
+
+// ─── API Call ───
+async function callAPI(userMessage) {
+  state.messages.push({ role: 'user', content: userMessage });
+
+  try {
+    let assistantText = '';
+
+    if (state.provider === 'openai') {
+      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${state.apiKey}`,
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          max_tokens: 1000,
+          messages: [
+            { role: 'system', content: SYSTEM_PROMPT },
+            ...state.messages,
+          ],
+        }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error.message);
+      assistantText = data.choices?.[0]?.message?.content || '';
+    } else {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': state.apiKey,
+          'anthropic-dangerous-direct-browser-access': 'true',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1000,
+          system: SYSTEM_PROMPT,
+          messages: state.messages,
+        }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error.message);
+      assistantText = data.content?.map(c => c.text || '').join('') || '';
+    }
+
+    state.messages.push({ role: 'assistant', content: assistantText });
+    return parseResponse(assistantText);
+  } catch (e) {
+    throw e;
+  }
+}
+
+// ─── Show Choices ───
+function showChoices(choices) {
+  choicesArea.innerHTML = '';
+  const amb = AMBIENCES[state.ambience];
+  choices.forEach(c => {
+    const btn = document.createElement('button');
+    btn.className = 'choice-btn';
+    btn.textContent = `${c.label}) ${c.text}`;
+    btn.style.borderColor = amb.accent + '44';
+    btn.style.background = amb.textBg;
+    btn.addEventListener('mouseenter', () => {
+      btn.style.background = amb.accent + '22';
+      btn.style.borderColor = amb.accent + '88';
+    });
+    btn.addEventListener('mouseleave', () => {
+      btn.style.background = amb.textBg;
+      btn.style.borderColor = amb.accent + '44';
+    });
+    btn.addEventListener('click', () => handleChoice(c));
+    choicesArea.appendChild(btn);
+  });
+  choicesArea.classList.add('active');
+}
+
+// ─── Add History Entry ───
+function addHistory(narration, choice) {
+  const entry = document.createElement('div');
+  entry.className = 'history-entry';
+  entry.innerHTML = `<div class="history-narration">${narration}</div><div class="history-choice">▸ ${choice}</div>`;
+  historyEl.appendChild(entry);
+}
+
+// ─── Handle Choice ───
+async function handleChoice(choice) {
+  addHistory(narrationEl.textContent, choice.text);
+  state.history.push({ narration: narrationEl.textContent, choice: choice.text });
+
+  narrationEl.textContent = '';
+  choicesArea.classList.remove('active');
+  choicesArea.innerHTML = '';
+  loadingEl.style.display = 'block';
+  errorEl.style.display = 'none';
+  state.turn++;
+  turnInd.textContent = `턴 ${state.turn}`;
+
+  try {
+    const parsed = await callAPI(`선택: ${choice.text}\n\n[현재 앰비언스: ${state.ambience}, 턴: ${state.turn}]`);
+    loadingEl.style.display = 'none';
+
+    if (parsed.ambience && AMBIENCES[parsed.ambience]) applyAmbience(parsed.ambience);
+    if (parsed.scene || parsed.ambience) applyScene(parsed.scene);
+    if (parsed.surprise) showSurprise(parsed.surprise);
+
+    if (parsed.diary) {
+      showDiary(parsed.narration, parsed.diary);
+      return;
+    }
+
+    await typeText(narrationEl, parsed.narration);
+    if (parsed.choices.length > 0) showChoices(parsed.choices);
+  } catch (e) {
+    loadingEl.style.display = 'none';
+    errorEl.textContent = '⚠ ' + e.message;
+    errorEl.style.display = 'block';
+  }
+}
+
+// ─── Show Diary ───
+function showDiary(lastNarration, diaryLines) {
+  walkScreen.classList.remove('active');
+  diaryScreen.classList.add('active');
+  const linesEl = $('#diary-lines');
+  linesEl.innerHTML = '';
+  diaryLines.forEach(line => {
+    const div = document.createElement('div');
+    div.className = 'diary-line';
+    div.textContent = line;
+    linesEl.appendChild(div);
+  });
+}
+
+// ─── Start Walk ───
+async function startWalk() {
+  if (!state.apiKey) {
+    $('#api-hint').textContent = 'API 키를 입력해주세요';
+    return;
+  }
+
+  titleScreen.style.display = 'none';
+  walkScreen.classList.add('active');
+  state.turn = 1;
+  state.messages = [];
+  state.history = [];
+  historyEl.innerHTML = '';
+  narrationEl.textContent = '';
+  turnInd.textContent = '턴 1';
+  loadingEl.style.display = 'block';
+  errorEl.style.display = 'none';
+
+  try {
+    const parsed = await callAPI('산책을 시작합니다. 숲, 해변, 비오는 길, 눈 오는 밤길, 별이 빛나는 밤길 중 하나를 골라서 시작해주세요. 현재 턴: 1');
+    loadingEl.style.display = 'none';
+
+    if (parsed.ambience && AMBIENCES[parsed.ambience]) applyAmbience(parsed.ambience);
+    applyScene(parsed.scene);
+    if (parsed.surprise) showSurprise(parsed.surprise);
+
+    await typeText(narrationEl, parsed.narration);
+    if (parsed.choices.length > 0) showChoices(parsed.choices);
+  } catch (e) {
+    loadingEl.style.display = 'none';
+    errorEl.textContent = '⚠ ' + e.message;
+    errorEl.style.display = 'block';
+  }
+}
+
+// ─── Reset ───
+function resetGame() {
+  diaryScreen.classList.remove('active');
+  walkScreen.classList.remove('active');
+  titleScreen.style.display = '';
+  sceneImg.classList.remove('visible');
+  state.ambience = 'forest';
+  applyAmbience('forest');
+  state.turn = 0;
+  state.messages = [];
+  state.history = [];
+  turnInd.textContent = '';
+  ambInd.textContent = '';
+}
+
+$('#start-btn').addEventListener('click', startWalk);
+$('#restart-btn').addEventListener('click', resetGame);
+
+// ─── Particle System ───
+let particles = [];
+let particleAnim = null;
+const canvas = $('#particle-canvas');
+const ctx = canvas.getContext('2d');
+
+function resizeCanvas() {
+  canvas.width = canvas.offsetWidth * window.devicePixelRatio;
+  canvas.height = canvas.offsetHeight * window.devicePixelRatio;
+  ctx.setTransform(window.devicePixelRatio, 0, 0, window.devicePixelRatio, 0, 0);
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+function W() { return canvas.offsetWidth; }
+function H() { return canvas.offsetHeight; }
+
+function spawnParticle(type) {
+  if (!type || type === 'none') return null;
+  switch (type) {
+    case 'leaf': return { x: Math.random()*W(), y: -20, vx: Math.random()*0.5-0.25, vy: Math.random()*1+0.5, rot: Math.random()*Math.PI*2, rotV: Math.random()*0.02-0.01, size: Math.random()*6+4, opacity: Math.random()*0.4+0.3, color: ['#8B6914','#6B8E23','#D2691E','#CD853F'][Math.floor(Math.random()*4)] };
+    case 'rain': return { x: Math.random()*W(), y: -10, vy: Math.random()*6+8, len: Math.random()*15+10, opacity: Math.random()*0.3+0.1 };
+    case 'firefly': return { x: Math.random()*W(), y: Math.random()*H(), vx: Math.random()*0.4-0.2, vy: Math.random()*0.4-0.2, pulse: Math.random()*Math.PI*2, size: Math.random()*3+2 };
+    case 'snow': return { x: Math.random()*W(), y: -10, vx: Math.random()*0.5-0.25, vy: Math.random()*1+0.3, wobble: Math.random()*Math.PI*2, size: Math.random()*4+2, opacity: Math.random()*0.5+0.3 };
+    default: return null;
+  }
+}
+
+function drawParticles() {
+  ctx.clearRect(0, 0, W(), H());
+  const type = AMBIENCES[state.ambience]?.particle;
+  if (!type || type === 'none') { particleAnim = requestAnimationFrame(drawParticles); return; }
+
+  if (type === 'firefly' && particles.length < 25) particles.push(spawnParticle(type));
+  else if (type !== 'firefly' && Math.random() < 0.3) particles.push(spawnParticle(type));
+  if (particles.length > 100) particles = particles.slice(-80);
+
+  particles = particles.filter(p => {
+    if (!p) return false;
+    switch (type) {
+      case 'leaf':
+        p.x += p.vx + Math.sin(p.rot)*0.3; p.y += p.vy; p.rot += p.rotV;
+        ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+        ctx.globalAlpha = p.opacity; ctx.fillStyle = p.color;
+        ctx.beginPath(); ctx.ellipse(0, 0, p.size, p.size*0.5, 0, 0, Math.PI*2); ctx.fill();
+        ctx.restore(); return p.y < H()+20;
+      case 'rain':
+        p.y += p.vy; ctx.globalAlpha = p.opacity; ctx.strokeStyle = '#aaccee'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x, p.y+p.len); ctx.stroke();
+        return p.y < H()+20;
+      case 'firefly':
+        p.x += p.vx; p.y += p.vy; p.pulse += 0.03;
+        if (p.x < 0 || p.x > W()) p.vx *= -1;
+        if (p.y < 0 || p.y > H()) p.vy *= -1;
+        const glow = (Math.sin(p.pulse)+1)/2;
+        ctx.globalAlpha = glow*0.7; ctx.fillStyle = '#ffffaa';
+        ctx.shadowColor = '#ffffaa'; ctx.shadowBlur = 15;
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2); ctx.fill();
+        ctx.shadowBlur = 0; return true;
+      case 'snow':
+        p.wobble += 0.02; p.x += p.vx + Math.sin(p.wobble)*0.5; p.y += p.vy;
+        ctx.globalAlpha = p.opacity; ctx.fillStyle = '#fff';
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2); ctx.fill();
+        return p.y < H()+20;
+      default: return false;
+    }
+  });
+  ctx.globalAlpha = 1;
+  particleAnim = requestAnimationFrame(drawParticles);
+}
+
+function initParticles() {
+  particles = [];
+  if (particleAnim) cancelAnimationFrame(particleAnim);
+  drawParticles();
+}
+
+// ─── Init ───
+applyAmbience('forest');
+</script>
+</body>
+</html>
