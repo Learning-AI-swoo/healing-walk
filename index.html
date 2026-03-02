@@ -751,10 +751,10 @@ function parseResponse(text) {
   const diaryMatch = narration.match(/---DIARY---([\s\S]*?)---END---/);
   if (diaryMatch) { diary = diaryMatch[1].trim().split('\n').map(l => l.trim()).filter(Boolean); narration = narration.replace(diaryMatch[0], ''); }
 
-  const choiceRegex = /\*\*([A-D])\)\*\*\s*(.+)/g;
+  const choiceRegex = /(?:\*\*)?([A-D])\)(?:\*\*)?\s*(.+)/g;
   let m;
   while ((m = choiceRegex.exec(narration)) !== null) { choices.push({ label: m[1], text: m[2].trim() }); }
-  narration = narration.replace(/\*\*[A-D]\)\*\*.+/g, '').trim();
+  narration = narration.replace(/(?:\*\*)?[A-D]\)(?:\*\*)?\s*.+/g, '').trim();
 
   console.log('🎯 파싱 결과:', { ambience, scene, surprise: !!surprise, diary: !!diary, choices: choices.length });
   return { ambience, scene, surprise, diary, choices, narration };
