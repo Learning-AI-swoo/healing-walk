@@ -398,17 +398,20 @@ function fadeToSound(ambienceId) {
   if (!target) return;
   // 타이틀/다이어리 화면에서는 사운드 재생 안 함
   if (!soundToggle.classList.contains('visible')) return;
+  // 같은 사운드면 무시
+  if (currentSound === target && target.playing()) return;
 
   // 현재 재생 중인 사운드를 페이드아웃
   if (currentSound && currentSound !== target) {
     const old = currentSound;
-    old.fade(old.volume(), 0, 1500);
-    setTimeout(() => old.stop(), 1600);
+    old.fade(soundMuted ? 0 : 0.4, 0, 2000);
+    setTimeout(() => { if (!old.playing() || old === currentSound) return; old.stop(); }, 2100);
   }
 
   // 새 사운드 페이드인
+  target.volume(0);
   if (!target.playing()) target.play();
-  target.fade(0, soundMuted ? 0 : 0.4, 1500);
+  target.fade(0, soundMuted ? 0 : 0.4, 2000);
   currentSound = target;
 }
 
@@ -651,6 +654,7 @@ function applyScene(sceneId) {
 
 // ─── Parse Response ───
 function parseResponse(text) {
+  console.log('📝 API 응답 원문:', text);
   let ambience = null, scene = null, surprise = null, diary = null, choices = [], narration = text;
 
   const ambMatch = narration.match(/\[AMBIENCE:(\w+)\]/);
@@ -670,6 +674,7 @@ function parseResponse(text) {
   while ((m = choiceRegex.exec(narration)) !== null) { choices.push({ label: m[1], text: m[2].trim() }); }
   narration = narration.replace(/\*\*[ABC]\)\*\*.+/g, '').trim();
 
+  console.log('🎯 파싱 결과:', { ambience, scene, surprise: !!surprise, diary: !!diary, choices: choices.length });
   return { ambience, scene, surprise, diary, choices, narration };
 }
 
