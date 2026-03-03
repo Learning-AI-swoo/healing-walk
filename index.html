@@ -151,6 +151,17 @@
   }
   #start-btn:hover { background: rgba(255,255,255,0.15); }
 
+  /* ─── Intro Guide ─── */
+  #intro-guide {
+    margin-top: 28px;
+    max-width: min(420px, 85vw);
+    color: rgba(232,224,208,0.35);
+    font-size: 12px;
+    line-height: 1.9;
+    text-align: center;
+    letter-spacing: 0.3px;
+  }
+
   /* ─── Walk Screen ─── */
   #walk-screen { display: none; height: 100%; flex-direction: column; justify-content: flex-end; }
   #walk-screen.active { display: flex; }
@@ -433,7 +444,7 @@
   <div id="turn-indicator"></div>
   <div id="amb-indicator"></div>
   <button id="sound-toggle" title="사운드 켜기/끄기">🔊</button>
-  <button id="text-toggle">📖</button>
+  <button id="text-toggle" title="텍스트 숨기기/보이기">📖</button>
   <button id="wander-btn">🧭 다른 길로</button>
 
   <!-- Wander Overlay -->
@@ -461,6 +472,9 @@
         <div class="hint" id="api-hint"></div>
       </div>
       <button id="start-btn">산 책 시 작</button>
+      <div id="intro-guide">
+        <p id="intro-text"></p>
+      </div>
     </div>
 
     <!-- Walk Screen -->
@@ -826,6 +840,7 @@ const UI_TEXT = {
     wanderCancel: '돌아가기',
     turnLabel: '턴',
     apiHintEmpty: 'API 키를 입력해주세요',
+    intro: 'AI가 자연 속 산책을 묘사해주고, 선택지를 골라 걸어갑니다. 픽셀아트 배경과 자연 소리를 틀어놓기만 해도 잠깐 쉬는 느낌. 🔊 소리 켜기 · 📖 텍스트 숨기기 · 🧭 다른 길로(7턴 후)',
     goHome: '🏠 산책을 마무리하고 집으로 돌아간다',
     goHomeText: '산책을 마무리하고 집으로 돌아간다',
     startMessage: '산책을 시작합니다. 숲, 해변, 비오는 길, 눈 오는 밤길, 별이 빛나는 밤길 중 하나를 골라서 시작해주세요. 현재 턴: 1',
@@ -850,6 +865,7 @@ const UI_TEXT = {
     wanderCancel: 'Go Back',
     turnLabel: 'Turn',
     apiHintEmpty: 'Please enter your API key',
+    intro: 'AI narrates a walk through nature — forests, rain, beaches, snow, starlit paths. Pick choices, listen to ambient sounds, and rest for a few minutes. 🔊 toggle sound · 📖 hide text · 🧭 change path (after turn 7)',
     goHome: '🏠 End the walk and head home',
     goHomeText: 'End the walk and head home',
     startMessage: 'The walk begins. Choose one setting to start: forest, beach, rainy trail, snowy night path, or starlit night path. Current turn: 1',
@@ -932,6 +948,7 @@ function applyLanguage(lang) {
   $('#wander-cancel').textContent = t.wanderCancel;
   $('.diary-title').textContent = t.diaryTitle;
   $('#restart-btn').textContent = t.restartBtn;
+  $('#intro-text').textContent = t.intro;
   historyToggle.textContent = t.historyToggleClosed;
   document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.dataset.lang === lang));
 }
@@ -1428,6 +1445,7 @@ function initParticles() {
 }
 
 // ─── Init ───
+$('#intro-text').textContent = UI_TEXT[state.lang].intro;
 applyAmbience('forest');
 </script>
 </body>
