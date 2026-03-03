@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="ko" id="html-root">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>힐링 산책 — Healing Walk</title>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.4/howler.min.js"></script>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -68,6 +68,31 @@
     position: absolute; top: 16px; right: 16px;
     color: rgba(232,224,208,0.4); font-size: 12px; z-index: 3;
     letter-spacing: 1px;
+  }
+
+  /* ─── Language Toggle ─── */
+  #lang-toggle {
+    display: flex;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.12);
+    margin-bottom: 24px;
+    width: fit-content;
+  }
+  .lang-btn {
+    padding: 6px 16px;
+    background: transparent;
+    color: rgba(232,224,208,0.35);
+    border: none;
+    cursor: pointer;
+    font-size: 12px;
+    font-family: 'DM Sans', 'Noto Sans KR', sans-serif;
+    transition: all 0.3s;
+    letter-spacing: 1px;
+  }
+  .lang-btn.active {
+    background: rgba(255,255,255,0.12);
+    color: #e8e0d0;
   }
 
   /* ─── Title Screen ─── */
@@ -399,8 +424,12 @@
   <div id="content">
     <!-- Title Screen -->
     <div id="title-screen">
-      <h1>힐링 산책</h1>
-      <div class="subtitle">HEALING WALK</div>
+      <div id="lang-toggle">
+        <button class="lang-btn active" data-lang="ko">한국어</button>
+        <button class="lang-btn" data-lang="en">English</button>
+      </div>
+      <h1 id="title-text">힐링 산책</h1>
+      <div class="subtitle" id="subtitle-text">HEALING WALK</div>
       <div class="api-section">
         <div class="provider-toggle">
           <button class="provider-btn active" data-provider="openai">OpenAI</button>
@@ -646,6 +675,168 @@ const SYSTEM_PROMPT = `당신은 '힐링 산책' 텍스트 어드벤처의 내�
 셋째 줄: 내일의 나에게 한마디
 ---END---`;
 
+const SYSTEM_PROMPT_EN = `You are the narrator of 'Healing Walk', a text adventure set in nature.
+
+## Role & Voice
+You are a quiet companion on the trail. Your tone is low, warm, and intimate — like ASMR for reading. Make the reader feel they are standing in the scene.
+
+### Writing Style
+- Vary sentence length. Short and long, alternating. Keep rhythm alive.
+- Lead each turn with a different sense (if the last opened with sound, start this one with touch or smell).
+- Weave 2–3 senses naturally into each scene. Don't list them — let them dissolve into the moment.
+- Avoid vague adjectives: "beautiful," "mysterious," "peaceful." Instead, show through detail.
+
+Good example:
+"Dry leaves crack underfoot. The sharp scent of oak rises from the ground, and somewhere ahead, water slips between stones — a thin, rushing murmur. Sunlight angles through the canopy and scatters coin-sized patches of light across the dirt."
+
+Avoid:
+"You walk through a beautiful forest. Peaceful sounds of nature surround you. Mysterious light filters through the trees. You feel calm."
+
+## Narrative Continuity (Important)
+Each turn is not a standalone scene. Always connect to the previous turn:
+- Reflect the player's last choice in your opening 1–2 sentences (they arrived here because of that choice).
+- Hint at passing time (the sun has shifted, the wind changed direction, your steps feel lighter).
+- Show gradual inner change in the walker (tension → ease, curiosity → absorption).
+
+## Choice Design (Important)
+The 3 choices must offer different kinds of action:
+- **Sensory/Observation**: Stop and look closely, listen, touch something (e.g., "Press your palm against the mossy bark")
+- **Movement/Exploration**: Head in a new direction (e.g., "Follow the trail deeper into the trees")
+- **Emotional/Action**: A small gesture or emotional response (e.g., "Close your eyes and breathe in deeply", "Hold out your hand to catch the rain")
+
+Don't mechanically repeat this framework every turn, but never give three choices that are all just "go to Place A / Place B / Place C." Each choice should lead to a different mood and direction.
+
+If the player picks a movement/exploration choice, the SCENE id must change. Don't stay on the same scene.
+
+## Ambience Transitions
+Let the player experience 2–3 ambiences per session. Don't try to show all 5.
+
+### Transition Timing
+- Stay in one ambience for 2–3 turns before switching.
+- In the turn before a transition, foreshadow it (dark clouds gathering, fading light, distant waves).
+- One of the three choices should always lead to a different ambience, and selecting it must actually change the AMBIENCE and SCENE.
+
+### Natural Transition Paths
+Use these as reference. Pick 2–3 per session:
+- forest → rain (rain begins in the forest)
+- forest → night (sun sets in the forest)
+- forest → beach (the trail opens onto the shore)
+- rain → night (rain clears, night sky appears)
+- rain → snow (rain turns to snow)
+- night → snow (snow begins falling at night)
+- beach → night (sunset fades to night on the beach)
+- snow → night (snowy night landscape)
+
+### Scene Progression Within an Ambience
+Show different scenes each turn within the same ambience:
+- forest: path → stream → bench → cabin → bridge (going deeper)
+- rain: path → umbrella → puddle → shelter (walking in rain, then resting)
+- night: moon → fireflies → stars → campfire (night deepening)
+- snow: path → lake → field → village (exploring the snowscape)
+- beach: sunset → tide → lighthouse → dock (walking along the shore)
+You don't have to follow this order exactly, but never repeat the same SCENE id consecutively.
+
+## Hard Constraints (Must Follow)
+- This is a walk through nature. No cafés, cities, conversations with people, or indoor activities.
+- Only use scene ids from the list below. Never invent new locations.
+- If the turn count is below 7, never offer a "go home" or ending option. Do not generate a ---DIARY--- block.
+- Even at turn 7+, do not generate ---DIARY--- unless the player explicitly chooses to go home.
+
+## Response Format
+1. Start with [AMBIENCE:id] tag (required)
+2. Immediately followed by [SCENE:id] tag (required)
+3. 2–3 paragraphs of narration (sensory writing)
+4. Exactly 3 choices (A, B, C only. Never create D or beyond):
+**A)** Choice text
+**B)** Choice text
+**C)** Choice text
+
+⚠ Important: Choices must be separated from narration. Do not embed **A)**, **B)**, **C)** inside narration paragraphs. Write them on separate lines after the narration ends.
+
+## Ambience & Scene Tags
+Available AMBIENCE ids: forest, rain, night, snow, beach
+
+Available SCENE ids (choose only from this list):
+- forest: forest_path, forest_stream, forest_bench, forest_cabin, forest_bridge
+- rain: rain_path, rain_shelter, rain_puddle, rain_umbrella
+- night: night_moon, night_fireflies, night_stars, night_campfire
+- snow: snow_path, snow_lake, snow_village, snow_field
+- beach: beach_sunset, beach_lighthouse, beach_tide, beach_dock
+
+## Surprise Events
+Every 3–4 turns, add a [SURPRISE:emoji:short description] tag after the narration.
+Surprises should be chance encounters in nature (an animal, a weather shift, something in the sky).
+Examples: [SURPRISE:🦌:A deer freezes mid-step, watching you], [SURPRISE:🌠:A shooting star streaks across the sky]
+
+## Ending (Turn 7+ Only)
+At turn 7 or later, place a "head home" or "end the walk" option in **C)**. Always in C), and never create a D) choice.
+Only when the player chooses to go home, write a final narration and then a 3-line journal:
+
+### Turn 22+: Forced Ending
+If the turn count is 22 or more, write a narration where the walker naturally heads home and generate a ---DIARY--- block. Do not generate choices.
+
+---DIARY---
+Line 1: One image from today's walk (a specific detail)
+Line 2: A feeling from the walk (a short sentence, not just one word)
+Line 3: A word to tomorrow's self
+---END---`;
+
+const AMBIENCE_LABELS_I18N = {
+  ko: { forest: '숲길 🌿', rain: '빗속 🌧️', night: '밤길 ✨', snow: '설경 ❄️', beach: '해변 🌅' },
+  en: { forest: 'Forest 🌿', rain: 'Rain 🌧️', night: 'Night ✨', snow: 'Snow ❄️', beach: 'Beach 🌅' },
+};
+
+// ─── UI Text (i18n) ───
+const UI_TEXT = {
+  ko: {
+    title: '힐링 산책',
+    subtitle: 'HEALING WALK',
+    startBtn: '산 책 시 작',
+    loading: '걸 어 가 는 중 . . .',
+    historyToggleOpen: '▼ 이전 이야기 접기',
+    historyToggleClosed: '▲ 이전 이야기',
+    diaryTitle: '산 책 일 기',
+    restartBtn: '다시 걷기',
+    wanderBtn: '🧭 다른 길로',
+    wanderTitle: '어 디 로  갈 까 요',
+    wanderCancel: '돌아가기',
+    turnLabel: '턴',
+    apiHintEmpty: 'API 키를 입력해주세요',
+    goHome: '🏠 산책을 마무리하고 집으로 돌아간다',
+    goHomeText: '산책을 마무리하고 집으로 돌아간다',
+    startMessage: '산책을 시작합니다. 숲, 해변, 비오는 길, 눈 오는 밤길, 별이 빛나는 밤길 중 하나를 골라서 시작해주세요. 현재 턴: 1',
+    soundTitle: '사운드 켜기/끄기',
+    wanderNarration: (target) => `산책자가 발걸음을 돌려 ${AMBIENCE_LABELS_I18N.ko[target]} 쪽으로 향합니다.`,
+    wanderInstruction: (target, turn) =>
+      `[사용자가 장소 이동을 선택했습니다. 반드시 앰비언스를 ${target}로 전환하세요.]\n\n산책자가 발걸음을 돌려 ${AMBIENCE_LABELS_I18N.ko[target]} 쪽으로 향합니다.\n\n[현재 앰비언스: ${target}, 턴: ${turn}]`,
+    choicePrefix: (turn) => `[현재 앰비언스: `,
+    font: "'Noto Sans KR', sans-serif",
+  },
+  en: {
+    title: 'Healing Walk',
+    subtitle: 'A WALK THROUGH NATURE',
+    startBtn: 'B E G I N',
+    loading: 'W a l k i n g . . .',
+    historyToggleOpen: '▼ Hide past story',
+    historyToggleClosed: '▲ Past story',
+    diaryTitle: 'W A L K  J O U R N A L',
+    restartBtn: 'Walk Again',
+    wanderBtn: '🧭 Another Path',
+    wanderTitle: 'W H E R E  T O ?',
+    wanderCancel: 'Go Back',
+    turnLabel: 'Turn',
+    apiHintEmpty: 'Please enter your API key',
+    goHome: '🏠 End the walk and head home',
+    goHomeText: 'End the walk and head home',
+    startMessage: 'The walk begins. Choose one setting to start: forest, beach, rainy trail, snowy night path, or starlit night path. Current turn: 1',
+    soundTitle: 'Toggle sound',
+    wanderNarration: (target) => `The walker turns and heads toward the ${AMBIENCE_LABELS_I18N.en[target]}.`,
+    wanderInstruction: (target, turn) =>
+      `[The user chose to move. Switch ambience to ${target}.]\n\nThe walker turns and heads toward the ${AMBIENCE_LABELS_I18N.en[target]}.\n\n[Current ambience: ${target}, Turn: ${turn}]`,
+    font: "'DM Sans', 'Noto Sans KR', sans-serif",
+  },
+};
+
 // ─── State ───
 let state = {
   screen: 'title',
@@ -656,6 +847,7 @@ let state = {
   turn: 0,
   messages: [],
   history: [],
+  lang: 'ko',
 };
 
 // ─── DOM Refs ───
@@ -681,7 +873,8 @@ let historyOpen = false;
 historyToggle.addEventListener('click', () => {
   historyOpen = !historyOpen;
   historyPanel.classList.toggle('open', historyOpen);
-  historyToggle.textContent = historyOpen ? '▼ 이전 이야기 접기' : '▲ 이전 이야기';
+  const t = UI_TEXT[state.lang];
+  historyToggle.textContent = historyOpen ? t.historyToggleOpen : t.historyToggleClosed;
   if (historyOpen) historyPanel.scrollTop = historyPanel.scrollHeight;
 });
 
@@ -699,6 +892,32 @@ document.querySelectorAll('.provider-btn').forEach(btn => {
 
 $('#api-key-input').addEventListener('input', (e) => { state.apiKey = e.target.value; });
 
+// ─── Language Toggle ───
+function applyLanguage(lang) {
+  state.lang = lang;
+  const t = UI_TEXT[lang];
+  document.getElementById('html-root').lang = lang === 'ko' ? 'ko' : 'en';
+  document.body.style.fontFamily = t.font;
+  document.getElementById('title-text').textContent = t.title;
+  document.getElementById('subtitle-text').textContent = t.subtitle;
+  $('#start-btn').textContent = t.startBtn;
+  $('#loading').textContent = t.loading;
+  $('#sound-toggle').title = t.soundTitle;
+  $('#wander-btn').innerHTML = t.wanderBtn;
+  $('.wander-title').textContent = t.wanderTitle;
+  $('#wander-cancel').textContent = t.wanderCancel;
+  $('.diary-title').textContent = t.diaryTitle;
+  $('#restart-btn').textContent = t.restartBtn;
+  historyToggle.textContent = t.historyToggleClosed;
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.dataset.lang === lang));
+}
+
+document.querySelectorAll('.lang-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    applyLanguage(btn.dataset.lang);
+  });
+});
+
 // ─── Apply Ambience ───
 function applyAmbience(id) {
   const amb = AMBIENCES[id];
@@ -715,7 +934,7 @@ function applyAmbience(id) {
     btn.style.background = amb.textBg;
   });
 
-  ambInd.textContent = amb.name;
+  ambInd.textContent = AMBIENCE_LABELS_I18N[state.lang][id];
   initParticles();
   // 사운드 전환
   fadeToSound(id);
@@ -788,6 +1007,7 @@ async function callAPI(userMessage) {
 
   try {
     let assistantText = '';
+    const sysPrompt = state.lang === 'en' ? SYSTEM_PROMPT_EN : SYSTEM_PROMPT;
 
     if (state.provider === 'openai') {
       const res = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -800,7 +1020,7 @@ async function callAPI(userMessage) {
           model: 'gpt-4.1',
           max_tokens: 1000,
           messages: [
-            { role: 'system', content: SYSTEM_PROMPT },
+            { role: 'system', content: sysPrompt },
             ...state.messages,
           ],
         }),
@@ -819,7 +1039,7 @@ async function callAPI(userMessage) {
         body: JSON.stringify({
           model: 'claude-sonnet-4-20250514',
           max_tokens: 1000,
-          system: SYSTEM_PROMPT,
+          system: sysPrompt,
           messages: state.messages,
         }),
       });
@@ -844,9 +1064,10 @@ function showChoices(choices) {
   if (state.turn >= 22) {
     const btn = document.createElement('button');
     btn.className = 'choice-btn';
-    btn.textContent = '🏠 산책을 마무리하고 집으로 돌아간다';
+    const t = UI_TEXT[state.lang];
+    btn.textContent = t.goHome;
     btn.style.borderColor = amb.accent + '30';
-    btn.addEventListener('click', () => handleChoice({ label: 'A', text: '산책을 마무리하고 집으로 돌아간다' }));
+    btn.addEventListener('click', () => handleChoice({ label: 'A', text: t.goHomeText }));
     choicesArea.appendChild(btn);
     choicesArea.classList.add('active');
     wanderBtn.style.display = 'none';
@@ -881,17 +1102,12 @@ const wanderOverlay = $('#wander-overlay');
 const wanderOptions = $('#wander-options');
 const wanderCancel = $('#wander-cancel');
 
-const AMBIENCE_LABELS = {
-  forest: '숲길 🌿',
-  rain: '빗속 🌧️',
-  night: '밤길 ✨',
-  snow: '설경 ❄️',
-  beach: '해변 🌅',
-};
+// AMBIENCE_LABELS → moved to AMBIENCE_LABELS_I18N above
 
 wanderBtn.addEventListener('click', () => {
   wanderOptions.innerHTML = '';
-  for (const [id, label] of Object.entries(AMBIENCE_LABELS)) {
+  const labels = AMBIENCE_LABELS_I18N[state.lang];
+  for (const [id, label] of Object.entries(labels)) {
     if (id === state.ambience) continue;
     const btn = document.createElement('button');
     btn.className = 'wander-option';
@@ -911,9 +1127,16 @@ wanderCancel.addEventListener('click', () => {
 });
 
 async function handleWander(targetAmbience) {
+  // Unlock audio context on user gesture
+  if (Howler.ctx && Howler.ctx.state === 'suspended') {
+    Howler.ctx.resume();
+  }
   // 히스토리에 기록
-  addHistory(narrationEl.textContent, `다른 길로 → ${AMBIENCE_LABELS[targetAmbience]}`);
-  state.history.push({ narration: narrationEl.textContent, choice: `다른 길로: ${targetAmbience}` });
+  const wanderLabel = state.lang === 'en'
+    ? `Another Path → ${AMBIENCE_LABELS_I18N.en[targetAmbience]}`
+    : `다른 길로 → ${AMBIENCE_LABELS_I18N.ko[targetAmbience]}`;
+  addHistory(narrationEl.textContent, wanderLabel);
+  state.history.push({ narration: narrationEl.textContent, choice: `wander: ${targetAmbience}` });
 
   narrationEl.textContent = '';
   choicesArea.classList.remove('active');
@@ -921,14 +1144,10 @@ async function handleWander(targetAmbience) {
   loadingEl.style.display = 'block';
   errorEl.style.display = 'none';
   state.turn++;
-  turnInd.textContent = `턴 ${state.turn}`;
+  turnInd.textContent = `${UI_TEXT[state.lang].turnLabel} ${state.turn}`;
 
   try {
-    const parsed = await callAPI(
-      `[사용자가 장소 이동을 선택했습니다. 반드시 앰비언스를 ${targetAmbience}로 전환하세요.]\n\n` +
-      `산책자가 발걸음을 돌려 ${AMBIENCE_LABELS[targetAmbience]} 쪽으로 향합니다.\n\n` +
-      `[현재 앰비언스: ${targetAmbience}, 턴: ${state.turn}]`
-    );
+    const parsed = await callAPI(UI_TEXT[state.lang].wanderInstruction(targetAmbience, state.turn));
     loadingEl.style.display = 'none';
 
     // 강제로 앰비언스 적용 (AI가 태그를 안 보낼 수 있으므로)
@@ -960,11 +1179,15 @@ function addHistory(narration, choice) {
   // Close history when new turn starts
   historyOpen = false;
   historyPanel.classList.remove('open');
-  historyToggle.textContent = '▲ 이전 이야기';
+  historyToggle.textContent = UI_TEXT[state.lang].historyToggleClosed;
 }
 
 // ─── Handle Choice ───
 async function handleChoice(choice) {
+  // Unlock audio context on user gesture
+  if (Howler.ctx && Howler.ctx.state === 'suspended') {
+    Howler.ctx.resume();
+  }
   addHistory(narrationEl.textContent, choice.text);
   state.history.push({ narration: narrationEl.textContent, choice: choice.text });
 
@@ -974,10 +1197,13 @@ async function handleChoice(choice) {
   loadingEl.style.display = 'block';
   errorEl.style.display = 'none';
   state.turn++;
-  turnInd.textContent = `턴 ${state.turn}`;
+  turnInd.textContent = `${UI_TEXT[state.lang].turnLabel} ${state.turn}`;
 
   try {
-    const parsed = await callAPI(`선택: ${choice.text}\n\n[현재 앰비언스: ${state.ambience}, 턴: ${state.turn}]`);
+    const choiceMsg = state.lang === 'en'
+      ? `Choice: ${choice.text}\n\n[Current ambience: ${state.ambience}, Turn: ${state.turn}]`
+      : `선택: ${choice.text}\n\n[현재 앰비언스: ${state.ambience}, 턴: ${state.turn}]`;
+    const parsed = await callAPI(choiceMsg);
     loadingEl.style.display = 'none';
 
     if (parsed.ambience && AMBIENCES[parsed.ambience]) applyAmbience(parsed.ambience);
@@ -1015,8 +1241,13 @@ function showDiary(lastNarration, diaryLines) {
 // ─── Start Walk ───
 async function startWalk() {
   if (!state.apiKey) {
-    $('#api-hint').textContent = 'API 키를 입력해주세요';
+    $('#api-hint').textContent = UI_TEXT[state.lang].apiHintEmpty;
     return;
+  }
+
+  // Unlock audio context on user gesture (browser autoplay policy)
+  if (Howler.ctx && Howler.ctx.state === 'suspended') {
+    Howler.ctx.resume();
   }
 
   titleScreen.style.display = 'none';
@@ -1030,12 +1261,12 @@ async function startWalk() {
   historyPanel.classList.remove('open');
   historyOpen = false;
   narrationEl.textContent = '';
-  turnInd.textContent = '턴 1';
+  turnInd.textContent = `${UI_TEXT[state.lang].turnLabel} 1`;
   loadingEl.style.display = 'block';
   errorEl.style.display = 'none';
 
   try {
-    const parsed = await callAPI('산책을 시작합니다. 숲, 해변, 비오는 길, 눈 오는 밤길, 별이 빛나는 밤길 중 하나를 골라서 시작해주세요. 현재 턴: 1');
+    const parsed = await callAPI(UI_TEXT[state.lang].startMessage);
     loadingEl.style.display = 'none';
 
     if (parsed.ambience && AMBIENCES[parsed.ambience]) applyAmbience(parsed.ambience);
