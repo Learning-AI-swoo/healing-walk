@@ -514,10 +514,21 @@
 // ─── Sound System ───
 const SOUNDS = {};
 let currentSound = null;
+let currentSoundId = null;
 let soundMuted = false;
 const soundToggle = document.getElementById('sound-toggle');
 const textToggle = document.getElementById('text-toggle');
 let textHidden = false;
+
+// ── 사운드 볼륨 조절 (0.0 ~ 1.0) ──────────────────────────────────────────
+const SOUND_VOLUMES = {
+  forest: 0.6,   // 숲 (기본보다 높게)
+  rain:   0.4,
+  night:  0.4,
+  snow:   0.4,
+  beach:  0.4,
+};
+// ─────────────────────────────────────────────────────────────────────────
 
 function initSounds() {
   const soundFiles = {
@@ -545,18 +556,21 @@ function fadeToSound(ambienceId) {
   // 같은 사운드면 무시
   if (currentSound === target && target.playing()) return;
 
+  const targetVol = SOUND_VOLUMES[ambienceId] ?? 0.4;
+
   // 현재 재생 중인 사운드를 페이드아웃
   if (currentSound && currentSound !== target) {
     const old = currentSound;
-    old.fade(soundMuted ? 0 : 0.4, 0, 2000);
+    old.fade(soundMuted ? 0 : old.volume(), 0, 2000);
     setTimeout(() => { if (!old.playing() || old === currentSound) return; old.stop(); }, 2100);
   }
 
   // 새 사운드 페이드인
   target.volume(0);
   if (!target.playing()) target.play();
-  target.fade(0, soundMuted ? 0 : 0.4, 2000);
+  target.fade(0, soundMuted ? 0 : targetVol, 2000);
   currentSound = target;
+  currentSoundId = ambienceId;
 }
 
 function toggleSound() {
@@ -566,7 +580,8 @@ function toggleSound() {
     if (soundMuted) {
       currentSound.fade(currentSound.volume(), 0, 300);
     } else {
-      currentSound.fade(0, 0.4, 300);
+      const vol = SOUND_VOLUMES[currentSoundId] ?? 0.4;
+      currentSound.fade(0, vol, 300);
     }
   }
 }
